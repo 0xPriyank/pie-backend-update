@@ -1,0 +1,1191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OrderStatus {
+  Pending
+  Processing
+  Shipped
+  Delivered
+  Canceled
+  Returned
+}
+
+enum PaymentStatus {
+  NOT_PAID
+  PENDING
+  SUCCESS
+  ABANDONED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentAttemptStatus {
+  CREATED
+  INITIATED
+  PROCESSING
+  SUCCESS
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  CASH_ON_DELIVERY
+  CASHFREE
+  BANK_TRANSFER
+  UPI
+  CARD
+}
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ContactType {
+  MOBILE
+  WORK
+  HOME
+  EMERGENCY
+}
+
+enum AddressType {
+  HOME
+  WORK
+  BILLING
+  SHIPPING
+}
+
+enum ShippingType {
+  SELF_FULFILLED
+  PLATFORM_COURIER
+}
+
+enum ShippingFee {
+  free
+  paid
+}
+
+enum SellerShippingAddressType {
+  PICKUP
+  RETURN
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKED_OUT
+  ABANDONED
+  EXPIRED
+}
+
+enum VariantType {
+  COLOR
+  SIZE
+}
+
+enum KYCDocumentType {
+  pan
+  aadhaar
+  driving_license
+  voter_id
+}
+
+enum CouponType {
+  PERCENTAGE
+  AMOUNT
+}
+
+enum GroupBuyStatus {
+  ACTIVE
+  SUCCESS
+  FAILED
+  EXPIRED
+}
+
+// ----CTP: Added Shopify-level Master/Sub-Order Status
+enum MasterOrderStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  PARTIALLY_FULFILLED
+  FULFILLED
+  PARTIALLY_SHIPPED
+  SHIPPED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+enum SubOrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  PACKED
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURN_APPROVED
+  RETURNED
+  REFUNDED
+}
+
+// ----CTP: Added Return/Refund Statuses
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PICKED_UP
+  IN_TRANSIT
+  RECEIVED
+  INSPECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum RefundStatus {
+  PENDING
+  INITIATED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RefundMethod {
+  ORIGINAL_PAYMENT_METHOD
+  WALLET
+  BANK_TRANSFER
+  STORE_CREDIT
+}
+
+// ----CTP: Added Import/Export Job Statuses
+enum ImportJobStatus {
+  PENDING
+  VALIDATING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIALLY_COMPLETED
+}
+
+enum ImportJobType {
+  PRODUCT
+  VARIANT
+  INVENTORY
+  CUSTOMER
+  ORDER
+}
+
+// ----CTP: Added Shipment Tracking Status
+enum ShipmentStatus {
+  PENDING
+  LABEL_CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  EXCEPTION
+  RETURNED
+  CANCELLED
+}
+
+
+model Customer {
+  id                      String            @id @default(uuid())
+  email                   String            @unique
+  fullName                String
+  password                String
+  isVerified              Boolean           @default(false)
+  role                    Role              @default(CUSTOMER)
+  refreshToken            String?
+  dateOfBirth             DateTime?
+  gender                  Gender?
+  address                 String?
+  contact                 CustomerContact?
+  // contactId       String?           @unique
+  referralCode            String?
+  loyaltyPoints           Int?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  ShippingAddress         ShippingAddress[]
+  Wishlist                Wishlist[]
+  Cart                    Cart[]
+  Orders                  Orders[]
+  Reviews                 Review[]
+  isBlocked               Boolean           @default(false)
+  couponUsage             CouponUsage[]
+  groupBuysCreated        GroupBuy[]        @relation("GroupBuyCreator")
+  groupBuyParticipations  GroupBuyParticipant[] @relation("GroupBuyParticipant")
+  
+  // ----CTP: Added Shopify-level relations
+  masterOrders            MasterOrder[]
+  returns                 Return[]
+  invoices                Invoice[]
+}
+
+model CustomerContact {
+  id         String      @id @default(uuid())
+  number     String      @unique
+  isVerified Boolean     @default(false)
+  customer   Customer?   @relation(fields: [customerId], references: [id])
+  customerId String?     @unique
+  type       ContactType
+}
+
+model Seller {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  fullName     String
+  role         Role           @default(SELLER)
+  isVerified   Boolean        @default(false)
+  password     String
+  refreshToken String?
+  contact      SellerContact?
+  // contactId    String?  @unique
+  businessType String?
+  businessName String?
+  legalName    String?
+  country      String?
+
+  // Storefront
+  storefrontInfo StorefrontInfo? @relation("SellerToStorefront")
+
+  // GST
+  GSTInfo GSTInfo?
+
+  // Shipping
+  shippingType      ShippingType?
+  shippingFee       ShippingFee?
+  shippingAddresses SellerShippingAddress[]
+
+  // Bank
+  bankDetails BankDetails?
+
+  // KYC
+  KYCInfo KYCInfo?
+
+  // Legal
+  tcsCompliance      Boolean?
+  termsOfService     Boolean?
+  legalAgreementDate DateTime?
+
+  // Onboarding
+  onboardingComplete    Boolean?  @default(false)
+  onboardingCompletedAt DateTime?
+
+  rating             Float?
+  followers          Int?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  sellerAddress      SellerAddress?             @relation()
+  Promotion          Promotion[]
+  Products           Product[]
+  orderItems         OrderItems[]
+  isBlocked          Boolean                    @default(false)
+  onboardingProgress SellerOnboardingProgress[]
+
+  File File[]
+
+  coupon Coupon[]
+  
+  // ----CTP: Added Shopify-level relations
+  subOrders       SubOrder[]
+  invoices        Invoice[]
+  commissionRules CommissionRule[]
+  importJobs      ImportJob[]
+}
+
+model SellerContact {
+  id         String      @id @default(uuid())
+  number     String      @unique
+  isVerified Boolean     @default(false)
+  seller     Seller?     @relation(fields: [sellerId], references: [id])
+  sellerId   String?     @unique
+  type       ContactType
+}
+
+model StorefrontInfo {
+  id       String  @id @default(uuid())
+  sellerId String  @unique
+  seller   Seller? @relation("SellerToStorefront", fields: [sellerId], references: [id])
+
+  storeName         String?
+  storeDescription  String?
+  storeLocation     String?
+  isBrandOwner      Boolean
+  productCategories String[] @default([])
+
+  // File Relations
+  storeLogoId String? @unique
+  storeLogo   File?   @relation("StoreLogo", fields: [storeLogoId], references: [id])
+  shopImageId String? @unique
+  shopImage   File?   @relation("ShopImage", fields: [shopImageId], references: [id])
+}
+
+model GSTInfo {
+  id       String @id @default(uuid())
+  sellerId String @unique
+  seller   Seller @relation(fields: [sellerId], references: [id])
+
+  gstin           String?
+  withoutGst      Boolean?
+  exemptionReason String?
+  gstRate         Float    @default(0)
+
+  //file relations
+  gstCertificateFileId String? @unique
+  gstCertificate       File?   @relation("GstCertificate", fields: [gstCertificateFileId], references: [id])
+  panCardFileId        String? @unique
+  panCard              File?   @relation(name: "PanCard", fields: [panCardFileId], references: [id])
+}
+
+model KYCInfo {
+  id       String @id @default(uuid())
+  sellerId String @unique
+  seller   Seller @relation(fields: [sellerId], references: [id])
+
+  kycDone         Boolean          @default(false)
+  kycLink         String?
+  kycDocumentType KYCDocumentType?
+
+  kycDocumentId String? @unique
+  kycDocument   File?   @relation("KycDocument", fields: [kycDocumentId], references: [id])
+
+  kycSelfieId String? @unique
+  kycSelfie   File?   @relation("KycSelfie", fields: [kycSelfieId], references: [id])
+}
+
+model SellerShippingAddress {
+  id           String                    @id @default(uuid())
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  country      String
+  pincode      String
+  fullName     String
+  contact      String
+  type         SellerShippingAddressType
+  seller       Seller                    @relation(fields: [sellerId], references: [id])
+  sellerId     String
+
+  @@unique([sellerId, type]) // Ensure one address per type per seller
+}
+
+model BankDetails {
+  id            String   @id @default(uuid())
+  accountName   String
+  accountNumber String
+  ifscCode      String
+  seller        Seller   @relation(fields: [sellerId], references: [id])
+  sellerId      String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  documentFileId String? @unique
+  documentFile   File?   @relation("BankDocument", fields: [documentFileId], references: [id])
+}
+
+// model Contact {
+//   id         String      @id @default(uuid())
+//   type       ContactType
+//   number     String      @unique
+//   isVerified Boolean     @default(false)
+//   customer   Customer?   @relation()
+//   seller     Seller?     @relation()
+// }
+
+model ShippingAddress {
+  id         String      @id @default(uuid())
+  fullName   String
+  contact    String
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  customerId String
+  type       AddressType
+  street     String
+  city       String
+  state      String
+  country    String
+  pincode    String
+  //Checkout  Related
+  orders     Orders[]    @relation("ShippingOnOrder")
+  isMain     Boolean     @default(false)
+  
+  // ----CTP: Added master order billing relation
+  masterOrderBilling MasterOrder[] @relation("MasterOrderBilling")
+}
+
+// ----CTP: Order Shipping Address (snapshot of address at order time)
+model OrderShippingAddress {
+  id           String        @id @default(uuid())
+  fullName     String
+  contact      String
+  email        String?
+  street       String
+  city         String
+  state        String
+  country      String
+  pincode      String
+  landmark     String?
+  masterOrders MasterOrder[]
+  createdAt    DateTime      @default(now())
+}
+
+
+model SellerAddress {
+  id       String @id @default(uuid())
+  fullName String
+  contact  String
+  sellerId String @unique
+  seller   Seller @relation(fields: [sellerId], references: [id])
+  street   String
+  city     String
+  state    String
+  country  String
+  pincode  String
+}
+
+model Otp {
+  id           String    @id @default(uuid())
+  otp          String
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime
+  email        String    @unique
+  attempts     Int       @default(0)
+  verified     Boolean   @default(false)
+  resetToken   String?
+  resetExpires DateTime?
+}
+
+model Product {
+  id               String           @id @default(uuid())
+  name             String
+  sku              String           @unique
+  details          String[]         @default([])
+  categories       Category[]
+  tags             Tag[]
+  shortDescription String
+  description      String
+  price            Int
+  discount         Float            @default(0) // Percentage between 0-100
+  originalPrice    Int              @default(0)
+  inStock          Boolean          @default(false)
+  stockAvailable   Int              @default(0)
+  sellerId         String
+  seller           Seller           @relation(fields: [sellerId], references: [id])
+  colorId          String
+  color            Color            @relation(fields: [colorId], references: [id])
+  sizeId           String
+  size             Size             @relation(fields: [sizeId], references: [id])
+  rating           Float            @default(0) // Between 0-5
+  reviewCount      Int              @default(0)
+  isActive         Boolean          @default(true)
+  deletedAt        DateTime?
+  cartItems        CartItem[]
+  wishlistItems    Wishlist[]
+  variants         Variant[]
+  images           File[]
+  OrderItems       OrderItems[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  Promotion        Promotion?       @relation(fields: [promotionId], references: [id])
+  promotionId      String?
+  AnalyticsEvent   AnalyticsEvent[]
+  ModerationFlag   ModerationFlag[]
+  Review           Review[]
+  isDeleted        Boolean          @default(false)
+  groupBuys        GroupBuy[]
+  
+  // ----CTP: Added Shopify-level product options and variants
+  options          ProductOption[]  @relation("ProductOptions")
+  productVariants  ProductVariant[] @relation("ProductVariants")
+
+  @@index([sku])
+  @@index([sellerId])
+}
+
+// ----CTP: Added Shopify-level Product Options (e.g., Color, Size, Material)
+model ProductOption {
+  id        String              @id @default(uuid())
+  productId String
+  product   Product             @relation("ProductOptions", fields: [productId], references: [id], onDelete: Cascade)
+  name      String // e.g., "Color", "Size", "Material"
+  position  Int                 @default(0) // Display order
+  values    ProductOptionValue[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([productId])
+}
+
+// ----CTP: Option Values (e.g., Red, Blue, Small, Large)
+model ProductOptionValue {
+  id        String         @id @default(uuid())
+  optionId  String
+  option    ProductOption  @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  value     String // e.g., "Red", "Small", "XL"
+  position  Int            @default(0)
+  variants  ProductVariant[] @relation("VariantOptions")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([optionId])
+}
+
+// ----CTP: Product Variants (Shopify-style multi-axis combinations)
+model ProductVariant {
+  id             String               @id @default(uuid())
+  productId      String
+  product        Product              @relation("ProductVariants", fields: [productId], references: [id], onDelete: Cascade)
+  sku            String               @unique // Must be unique per seller
+  title          String? // e.g., "Red / Small"
+  price          Int
+  compareAtPrice Int? // Original price before discount
+  costPrice      Int? // Cost to seller
+  inventory      Int                  @default(0)
+  weight         Float? // In grams
+  imageId        String?              @unique
+  image          File?                @relation("VariantImage", fields: [imageId], references: [id])
+  optionValues   ProductOptionValue[] @relation("VariantOptions") // Multi-axis: Color+Size+Material
+  position       Int                  @default(0)
+  isActive       Boolean              @default(true)
+  subOrderItems  SubOrderItem[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([productId])
+  @@index([sku])
+}
+
+// ----CTP: Master Order (Customer's complete order)
+model MasterOrder {
+  id                  String             @id @default(uuid())
+  orderNumber         String             @unique // e.g., "ORD-2025-12345"
+  customerId          String
+  customer            Customer           @relation(fields: [customerId], references: [id])
+  totalAmount         Decimal            @db.Decimal(10, 2)
+  discountAmount      Decimal            @default(0) @db.Decimal(10, 2)
+  shippingAmount      Decimal            @default(0) @db.Decimal(10, 2)
+  taxAmount           Decimal            @default(0) @db.Decimal(10, 2)
+  finalAmount         Decimal            @db.Decimal(10, 2)
+  status              MasterOrderStatus  @default(PENDING)
+  paymentStatus       PaymentStatus      @default(NOT_PAID)
+  paymentMethod       PaymentMethod?
+  couponCode          String?
+  couponDiscount      Decimal            @default(0) @db.Decimal(10, 2)
+  shippingAddressId   String
+  shippingAddress     OrderShippingAddress @relation(fields: [shippingAddressId], references: [id])
+  billingAddressId    String?
+  billingAddress      ShippingAddress?     @relation("MasterOrderBilling", fields: [billingAddressId], references: [id])
+  subOrders           SubOrder[]
+  paymentAttempts     PaymentAttempt[]   @relation("MasterOrderPayments")
+  invoices            Invoice[]
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([orderNumber])
+}
+
+// ----CTP: Sub-Order (Seller-specific portion of master order)
+model SubOrder {
+  id                String          @id @default(uuid())
+  subOrderNumber    String          @unique // e.g., "SUB-2025-12345-S1"
+  masterOrderId     String
+  masterOrder       MasterOrder     @relation(fields: [masterOrderId], references: [id])
+  sellerId          String
+  seller            Seller          @relation(fields: [sellerId], references: [id])
+  subtotal          Decimal         @db.Decimal(10, 2)
+  shippingFee       Decimal         @default(0) @db.Decimal(10, 2)
+  taxAmount         Decimal         @default(0) @db.Decimal(10, 2)
+  platformFee       Decimal         @default(0) @db.Decimal(10, 2) // Commission
+  sellerAmount      Decimal         @db.Decimal(10, 2) // Amount after platform fee
+  status            SubOrderStatus  @default(PENDING)
+  paymentStatus     PaymentStatus   @default(NOT_PAID)
+  items             SubOrderItem[]
+  shipment          ShipmozoShipment?
+  invoice           Invoice?
+  returns           Return[]
+  trackingNumber    String?
+  trackingUrl       String?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([masterOrderId])
+  @@index([sellerId])
+  @@index([subOrderNumber])
+}
+
+// ----CTP: Sub-Order Items (Individual products in seller's order)
+model SubOrderItem {
+  id          String         @id @default(uuid())
+  subOrderId  String
+  subOrder    SubOrder       @relation(fields: [subOrderId], references: [id])
+  variantId   String
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+  quantity    Int
+  price       Decimal        @db.Decimal(10, 2) // Price at time of order
+  discount    Decimal        @default(0) @db.Decimal(10, 2)
+  taxAmount   Decimal        @default(0) @db.Decimal(10, 2)
+  total       Decimal        @db.Decimal(10, 2)
+  returnItems ReturnItem[]
+  createdAt   DateTime       @default(now())
+
+  @@index([subOrderId])
+  @@index([variantId])
+}
+
+// ----CTP: Return Requests
+model Return {
+  id              String       @id @default(uuid())
+  returnNumber    String       @unique // e.g., "RET-2025-12345"
+  subOrderId      String
+  subOrder        SubOrder     @relation(fields: [subOrderId], references: [id])
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  reason          String
+  description     String?
+  status          ReturnStatus @default(REQUESTED)
+  items           ReturnItem[]
+  refund          Refund?
+  pickupAddress   String?
+  trackingNumber  String?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  completedAt     DateTime?
+  rejectionReason String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([subOrderId])
+  @@index([customerId])
+  @@index([returnNumber])
+}
+
+// ----CTP: Return Items (Individual products being returned)
+model ReturnItem {
+  id             String       @id @default(uuid())
+  returnId       String
+  return         Return       @relation(fields: [returnId], references: [id])
+  subOrderItemId String
+  subOrderItem   SubOrderItem @relation(fields: [subOrderItemId], references: [id])
+  quantity       Int // Quantity being returned
+  refundAmount   Decimal      @db.Decimal(10, 2)
+  createdAt      DateTime     @default(now())
+
+  @@index([returnId])
+  @@index([subOrderItemId])
+}
+
+// ----CTP: Refund Processing
+model Refund {
+  id              String       @id @default(uuid())
+  refundNumber    String       @unique // e.g., "REF-2025-12345"
+  returnId        String       @unique
+  return          Return       @relation(fields: [returnId], references: [id])
+  amount          Decimal      @db.Decimal(10, 2)
+  method          RefundMethod @default(ORIGINAL_PAYMENT_METHOD)
+  status          RefundStatus @default(PENDING)
+  transactionId   String? // Gateway transaction ID
+  processedAt     DateTime?
+  failureReason   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([returnId])
+  @@index([refundNumber])
+}
+
+// ----CTP: GST Invoices
+model Invoice {
+  id               String       @id @default(uuid())
+  invoiceNumber    String       @unique // e.g., "INV-2025-12345"
+  masterOrderId    String?
+  masterOrder      MasterOrder? @relation(fields: [masterOrderId], references: [id])
+  subOrderId       String?      @unique
+  subOrder         SubOrder?    @relation(fields: [subOrderId], references: [id])
+  sellerId         String
+  seller           Seller       @relation(fields: [sellerId], references: [id])
+  customerId       String
+  customer         Customer     @relation(fields: [customerId], references: [id])
+  subtotal         Decimal      @db.Decimal(10, 2)
+  cgstAmount       Decimal      @default(0) @db.Decimal(10, 2)
+  sgstAmount       Decimal      @default(0) @db.Decimal(10, 2)
+  igstAmount       Decimal      @default(0) @db.Decimal(10, 2)
+  totalTax         Decimal      @default(0) @db.Decimal(10, 2)
+  totalAmount      Decimal      @db.Decimal(10, 2)
+  pdfUrl           String? // Cloudinary URL
+  generatedAt      DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+
+  @@index([masterOrderId])
+  @@index([subOrderId])
+  @@index([sellerId])
+  @@index([invoiceNumber])
+}
+
+// ----CTP: Shipmozo Integration
+model ShipmozoShipment {
+  id              String         @id @default(uuid())
+  subOrderId      String         @unique
+  subOrder        SubOrder       @relation(fields: [subOrderId], references: [id])
+  shipmozoOrderId String?        @unique // Shipmozo's order ID
+  trackingNumber  String?
+  trackingUrl     String?
+  courierName     String?
+  courierCode     String?
+  status          ShipmentStatus @default(PENDING)
+  pickupDate      DateTime?
+  deliveredDate   DateTime?
+  currentLocation String?
+  trackingEvents  Json? // Array of tracking events
+  labelUrl        String? // Shipping label PDF
+  manifestUrl     String? // Manifest PDF
+  awbNumber       String? // Air Waybill Number
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([subOrderId])
+  @@index([trackingNumber])
+}
+
+// ----CTP: Commission Rules (Platform takes % from each sub-order)
+model CommissionRule {
+  id            String   @id @default(uuid())
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  sellerId      String? // Null = global rule, specific = seller-specific
+  seller        Seller?  @relation(fields: [sellerId], references: [id])
+  percentage    Decimal  @db.Decimal(5, 2) // e.g., 15.00 for 15%
+  fixedAmount   Decimal  @default(0) @db.Decimal(10, 2)
+  minAmount     Decimal  @default(0) @db.Decimal(10, 2)
+  maxAmount     Decimal? @db.Decimal(10, 2)
+  isActive      Boolean  @default(true)
+  effectiveFrom DateTime @default(now())
+  effectiveTo   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([sellerId])
+}
+
+// ----CTP: Global Product Attributes (Admin-defined)
+model GlobalAttribute {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "Material", "Brand", "Warranty"
+  displayName String // e.g., "Product Material"
+  type        String   @default("TEXT") // TEXT, NUMBER, SELECT, MULTISELECT, BOOLEAN
+  options     String[] @default([]) // For SELECT/MULTISELECT types
+  isRequired  Boolean  @default(false)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  position    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+// ----CTP: CSV Import/Export Jobs
+model ImportJob {
+  id            String          @id @default(uuid())
+  type          ImportJobType
+  sellerId      String
+  seller        Seller          @relation(fields: [sellerId], references: [id])
+  fileName      String
+  fileUrl       String // Cloudinary URL of uploaded CSV
+  status        ImportJobStatus @default(PENDING)
+  totalRows     Int             @default(0)
+  processedRows Int             @default(0)
+  successRows   Int             @default(0)
+  failedRows    Int             @default(0)
+  errors        Json? // Array of error messages
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([sellerId])
+  @@index([type])
+}
+
+
+model Promotion {
+  id                String    @id @default(uuid())
+  code              String    @unique
+  description       String?
+  discount          Float // Percentage or flat rate
+  isPercentage      Boolean   @default(true)
+  startDate         DateTime
+  endDate           DateTime
+  active            Boolean   @default(true)
+  seller            Seller?   @relation(fields: [sellerId], references: [id])
+  sellerId          String?
+  createdBy         Admin?    @relation(fields: [adminId], references: [id])
+  adminId           String?
+  products          Product[]
+  maxDiscountAmount Int?
+  usageCount        Int       @default(0)
+  usageLimit        Int       @default(9999)
+  minOrderValue     Int?
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  eventType String // view, cart_add, purchase, etc.
+  product   Product? @relation(fields: [productId], references: [id])
+  productId String?
+  meta      Json
+  createdAt DateTime @default(now())
+}
+
+model Admin {
+  id             String           @id @default(uuid())
+  fullName       String
+  email          String           @unique
+  password       String
+  isVerified     Boolean          @default(false)
+  Promotion      Promotion[]
+  ModerationFlag ModerationFlag[]
+
+  refreshToken String?
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ModerationFlag {
+  id         String   @id @default(uuid())
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+  reason     String
+  reviewed   Boolean  @default(false)
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  reviewedBy Admin?   @relation(fields: [adminId], references: [id])
+  adminId    String?
+}
+
+model Variant {
+  id        String      @id @default(uuid())
+  sku       String      @unique
+  name      String
+  value     String
+  type      VariantType
+  stock     Int
+  product   Product     @relation(fields: [productId], references: [id])
+  inStock   Boolean     @default(false)
+  productId String
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Int
+  colorId   String
+  color     Color    @relation(fields: [colorId], references: [id])
+  sizeId    String
+  size      Size     @relation(fields: [sizeId], references: [id])
+  addedAt   DateTime @default(now())
+}
+
+model Wishlist {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  addedAt    DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Cart {
+  id         String     @id @default(uuid())
+  customerId String?
+  customer   Customer?  @relation(fields: [customerId], references: [id])
+  status     CartStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  items      CartItem[]
+}
+
+model Category {
+  id               String     @id @default(uuid())
+  name             String     @unique
+  slug             String     @unique
+  parentCategoryId String?
+  taxId            String
+  // Relations
+  parentCategory   Category?  @relation("CategoryToParent", fields: [parentCategoryId], references: [id])
+  subCategories    Category[] @relation("CategoryToParent")
+  taxSlab          TaxSlab    @relation(fields: [taxId], references: [id])
+  products         Product[]
+  
+  // ----CTP: Added Shopify-level category features
+  commissionRules  CommissionRule[]
+  globalAttributes GlobalAttribute[]
+}
+
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Float
+  content   String
+  author    Customer @relation(fields: [authorId], references: [id])
+  authorId  String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+  createdAt DateTime @default(now())
+}
+
+model Color {
+  id        String     @id @default(uuid())
+  name      String
+  value     String
+  products  Product[]
+  cartItems CartItem[]
+}
+
+model Size {
+  id        String     @id @default(uuid())
+  name      String
+  value     String
+  products  Product[]
+  cartItems CartItem[]
+}
+
+model TaxSlab {
+  id         String     @id @default(uuid())
+  title      String     @unique
+  percentage Float
+  categories Category[]
+}
+
+model Orders {
+  id                   String           @id @default(uuid())
+  customerId           String
+  orderItems           OrderItems[]
+  subTotal             Int              @default(0)
+  shippingCharge       Int              @default(0)
+  tax                  Int              @default(0)
+  couponDiscount       Int              @default(0)
+  couponCode           String?
+  total                Int              @default(0)
+  paidAmount           Int              @default(0)
+  refundAmount         Int              @default(0)
+  orderStatus          OrderStatus      @default(Pending)
+  paymentStatus        PaymentStatus    @default(NOT_PAID)
+  paymentMethod        PaymentMethod
+  isPaid               Boolean          @default(false)
+  orderPlacedAt        DateTime         @default(now())
+  paymentAcceptedAt    DateTime?
+  deliveredToCourierAt DateTime?
+  beingDelivered       DateTime?
+  delivered            DateTime?
+  canceledAt           DateTime?
+  orderNotes           String?
+  currencyCode         String           @default("INR")
+  isGift               Boolean          @default(false)
+  updatedAt            DateTime         @updatedAt
+  customer             Customer         @relation(fields: [customerId], references: [id])
+  shippingAddressId    String?
+  shippingAddress      ShippingAddress? @relation("ShippingOnOrder", fields: [shippingAddressId], references: [id])
+  // Razorpay related
+  razorpayOrderId      String?          @unique
+  razorpayPaymentId    String?
+  razorpaySignature    String?
+  isPaymentVerified    Boolean          @default(false)
+  PaymentAttempt       PaymentAttempt[]
+  couponUsage          CouponUsage?
+
+  @@index([customerId])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+}
+
+model OrderItems {
+  id             String  @id @default(uuid())
+  productId      String
+  sellerId       String
+  tax            Int     @default(0)
+  quantity       Int
+  unitPrice      Int
+  discountAmount Int     @default(0)
+  totalPrice     Int
+  options        String?
+  productName    String
+  productSKU     String
+  seller         Seller  @relation(fields: [sellerId], references: [id])
+
+  product         Product        @relation(fields: [productId], references: [id])
+  reservedStock   ReservedStock? @relation(fields: [reservedStockId], references: [id])
+  reservedStockId String?        @unique
+  Orders          Orders?        @relation(fields: [ordersId], references: [id])
+  ordersId        String?
+}
+
+model ReservedStock {
+  id        String   @id @default(uuid())
+  productId String
+  colorId   String
+  sizeId    String
+  quantity  Int
+  expiresAt DateTime
+
+  createdAt DateTime    @default(now())
+  orderItem OrderItems?
+}
+
+model SellerOnboardingProgress {
+  id           String   @id @default(uuid())
+  sellerId     String   @unique
+  progressStep String[]
+  completed    Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  seller       Seller   @relation(fields: [sellerId], references: [id])
+}
+
+model PaymentAttempt {
+  id                String               @id @default(uuid())
+  ordersId          String
+  order             Orders               @relation(fields: [ordersId], references: [id])
+  razorpayOrderId   String               @unique
+  razorpayPaymentId String?
+  status            PaymentAttemptStatus
+  paymentMethod     PaymentMethod
+  refundReason      String?
+  attemptTime       DateTime             @default(now())
+  amount            Int
+  currency          String               @default("INR")
+  
+  // ----CTP: Added master order relation
+  masterOrderId     String?
+  masterOrder       MasterOrder?         @relation("MasterOrderPayments", fields: [masterOrderId], references: [id])
+}
+
+model File {
+  id        String  @id @default(uuid())
+  objectKey String? // Cloudinary or S3 key
+  src       String?
+  mimeType  String
+  format    String
+  // required for product Images
+  isMain    Boolean @default(false)
+  alt       String  @default("")
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  sellerId String?
+  seller   Seller? @relation(fields: [sellerId], references: [id])
+
+  uploadedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt()
+
+  storefrontLogo  StorefrontInfo? @relation("StoreLogo")
+  storefrontImage StorefrontInfo? @relation("ShopImage")
+  gstCertificate  GSTInfo?        @relation("GstCertificate")
+  panCard         GSTInfo?        @relation("PanCard")
+  kycDocument     KYCInfo?        @relation("KycDocument")
+  kycSelfie       KYCInfo?        @relation("KycSelfie")
+  bankDocument    BankDetails?    @relation("BankDocument")
+  
+  // ----CTP: Added variant image relation
+  variantImage    ProductVariant? @relation("VariantImage")
+}
+
+model Coupon {
+  id                    String        @id @default(uuid())
+  couponCode            String        @unique
+  name                  String
+  isActive              Boolean       @default(false)
+  couponType            CouponType
+  value                 Decimal
+  startDate             DateTime      @default(now())
+  validity              DateTime
+  minimumAmount         Decimal
+  maximumAmount         Decimal
+  specificCustomerEmail String[]
+  productApplicable     String[]
+  couponUsageLimit      Int // Total times the coupon can be used
+  userUsageLimit        Int // Times a single user can use it
+  seller                Seller        @relation(fields: [sellerId], references: [id])
+  sellerId              String
+  usages                CouponUsage[]
+}
+
+model CouponUsage {
+  id         String   @id @default(uuid())
+  usedAt     DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String
+  coupon     Coupon   @relation(fields: [couponId], references: [id])
+  couponId   String
+  order      Orders   @relation(fields: [orderId], references: [id])
+  orderId    String   @unique
+}
+
+model GroupBuy {
+  id                   String                 @id @default(uuid())
+  productId            String
+  product              Product                @relation(fields: [productId], references: [id])
+  creatorId            String
+  creator              Customer               @relation("GroupBuyCreator", fields: [creatorId], references: [id])
+  requiredParticipants Int
+  currentParticipants  Int                    @default(1)
+  discountPercentage   Decimal
+  status               GroupBuyStatus         @default(ACTIVE)
+  expiresAt            DateTime
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  participants         GroupBuyParticipant[]
+}
+
+model GroupBuyParticipant {
+  id          String   @id @default(uuid())
+  groupBuyId  String
+  groupBuy    GroupBuy @relation(fields: [groupBuyId], references: [id])
+  userId      String
+  user        Customer @relation("GroupBuyParticipant", fields: [userId], references: [id])
+  joinedAt    DateTime @default(now())
+
+  @@unique([groupBuyId, userId]) // Prevent duplicate joins
+}

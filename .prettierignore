@@ -1,0 +1,43 @@
+# Node modules
+node_modules
+
+# Build output
+dist
+build
+.next
+.out
+
+# Prisma generated files
+prisma/migrations
+prisma/generated
+prisma/schema.prisma
+
+# Environment variables and sensitive files
+.env
+.env.* # .env.local, .env.production etc.
+
+# Logs
+logs
+*.log
+
+# Cache folders
+.cache
+.nyc_output
+coverage
+
+# Git
+.git
+.gitignore
+
+# Misc
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Public/static folders (if frontend exists)
+public
+static
+
+# IDEs
+.vscode
+.idea

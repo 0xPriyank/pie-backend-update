@@ -1,0 +1,762 @@
+-- Enhanced Prisma Schema for Shopify-like Multi-Vendor Marketplace
+-- This extends the existing schema with new models and relationships
+
+-- ===========================================
+-- PRODUCT ENHANCEMENTS
+-- ===========================================
+
+-- Product Options (e.g., Size, Color, Material)
+model ProductOption {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String   // e.g., "Size", "Color", "Material"
+  position  Int      @default(1)
+  values    ProductOptionValue[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+-- Product Option Values (e.g., "Small", "Red", "Cotton")
+model ProductOptionValue {
+  id        String          @id @default(uuid())
+  optionId  String
+  option    ProductOption   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  value     String          // e.g., "Small", "Red", "Cotton"
+  position  Int             @default(1)
+  variants  ProductVariant[]
+  createdAt DateTime        @default(now())
+
+  @@index([optionId])
+}
+
+-- Enhanced Product Variant (Shopify-style)
+model ProductVariant {
+  id                String                @id @default(uuid())
+  productId         String
+  product           Product               @relation("ProductVariants", fields: [productId], references: [id], onDelete: Cascade)
+  
+  -- Variant identification
+  sku               String                @unique
+  barcode           String?
+  
+  -- Option combination (e.g., "Red / Small")
+  optionValues      ProductOptionValue[]
+  variantTitle      String?               -- Generated from options
+  
+  -- Pricing
+  price             Int
+  compareAtPrice    Int?                  -- Original price for discount display
+  costPrice         Int?                  -- Cost to seller
+  
+  -- Inventory
+  inventoryQty      Int                   @default(0)
+  lowStockThreshold Int                   @default(10)
+  allowBackorder    Boolean               @default(false)
+  trackInventory    Boolean               @default(true)
+  
+  -- Physical attributes
+  weight            Float?                -- in grams
+  weightUnit        String                @default("g")
+  length            Float?                -- in cm
+  width             Float?
+  height            Float?
+  
+  -- Status
+  isActive          Boolean               @default(true)
+  position          Int                   @default(0)
+  
+  -- Media
+  images            VariantImage[]
+  
+  -- Relations
+  orderItems        SubOrderItem[]
+  reservedStock     ReservedStock[]
+  
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([productId])
+  @@index([sku])
+}
+
+-- Variant-specific images
+model VariantImage {
+  id         String         @id @default(uuid())
+  variantId  String
+  variant    ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  fileId     String
+  file       File           @relation("VariantImages", fields: [fileId], references: [id])
+  position   Int            @default(0)
+  alt        String?
+  createdAt  DateTime       @default(now())
+
+  @@index([variantId])
+}
+
+-- ===========================================
+-- GLOBAL ATTRIBUTES SYSTEM
+-- ===========================================
+
+-- Global Attributes (e.g., "Brand", "Fabric Type", "Warranty Period")
+model GlobalAttribute {
+  id          String                @id @default(uuid())
+  name        String                @unique
+  displayName String
+  inputType   AttributeInputType    @default(TEXT)
+  isRequired  Boolean               @default(false)
+  
+  -- For dropdown/multi-select
+  options     AttributeOption[]
+  
+  -- Category associations
+  categories  Category[]
+  
+  -- Product values
+  productValues ProductAttributeValue[]
+  
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+}
+
+enum AttributeInputType {
+  TEXT
+  NUMBER
+  DROPDOWN
+  MULTI_SELECT
+  DATE
+  BOOLEAN
+}
+
+model AttributeOption {
+  id          String          @id @default(uuid())
+  attributeId String
+  attribute   GlobalAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value       String
+  position    Int             @default(0)
+  
+  @@index([attributeId])
+}
+
+-- Product-specific attribute values
+model ProductAttributeValue {
+  id          String          @id @default(uuid())
+  productId   String
+  product     Product         @relation("ProductAttributes", fields: [productId], references: [id], onDelete: Cascade)
+  attributeId String
+  attribute   GlobalAttribute @relation(fields: [attributeId], references: [id])
+  value       String          -- JSON for multi-select
+  
+  @@unique([productId, attributeId])
+  @@index([productId])
+}
+
+-- ===========================================
+-- ORDER SPLITTING & SUB-ORDERS
+-- ===========================================
+
+-- Master Order (Customer-facing)
+model MasterOrder {
+  id                String           @id @default(uuid())
+  orderNumber       String           @unique  -- e.g., "ORD-2025-001234"
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id])
+  
+  -- Totals
+  subtotal          Int
+  taxAmount         Int
+  shippingCharge    Int
+  discountAmount    Int              @default(0)
+  totalAmount       Int
+  
+  -- Payment
+  paymentMethod     PaymentMethod
+  paymentStatus     PaymentStatus    @default(NOT_PAID)
+  razorpayOrderId   String?          @unique
+  razorpayPaymentId String?
+  
+  -- Shipping
+  shippingAddressId String?
+  shippingAddress   ShippingAddress? @relation("MasterOrderShipping", fields: [shippingAddressId], references: [id])
+  
+  -- Status aggregation from sub-orders
+  overallStatus     OrderStatus      @default(Pending)
+  
+  -- Coupon
+  couponCode        String?
+  couponDiscount    Int              @default(0)
+  
+  -- Sub-orders
+  subOrders         SubOrder[]
+  
+  -- Timestamps
+  orderPlacedAt     DateTime         @default(now())
+  paidAt            DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([customerId])
+  @@index([orderNumber])
+}
+
+-- Sub-Order (Seller-specific)
+model SubOrder {
+  id                String            @id @default(uuid())
+  subOrderNumber    String            @unique  -- e.g., "SO-2025-001234-01"
+  
+  -- Master order reference
+  masterOrderId     String
+  masterOrder       MasterOrder       @relation(fields: [masterOrderId], references: [id])
+  
+  -- Seller
+  sellerId          String
+  seller            Seller            @relation(fields: [sellerId], references: [id])
+  
+  -- Amounts
+  subtotal          Int
+  taxAmount         Int
+  shippingCharge    Int
+  discountAmount    Int               @default(0)
+  totalAmount       Int
+  
+  -- Commission
+  platformCommission Int              @default(0)
+  categoryCommission Int              @default(0)
+  sellerPayout       Int              -- Amount seller receives
+  
+  -- Payment status (mapped from master order)
+  paymentStatus     PaymentStatus     @default(NOT_PAID)
+  
+  -- Fulfillment
+  status            OrderStatus       @default(Pending)
+  shippingType      ShippingType?
+  trackingNumber    String?
+  shipmozoShipmentId String?
+  shippingLabelUrl  String?
+  
+  -- Line items
+  items             SubOrderItem[]
+  
+  -- Fulfillment tracking
+  acceptedAt        DateTime?
+  packedAt          DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  cancelledAt       DateTime?
+  
+  -- Returns/Refunds
+  returns           Return[]
+  refunds           Refund[]
+  
+  -- Invoice
+  invoiceNumber     String?           @unique
+  invoiceUrl        String?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([masterOrderId])
+  @@index([sellerId])
+  @@index([subOrderNumber])
+}
+
+-- Sub-Order Line Items
+model SubOrderItem {
+  id                String           @id @default(uuid())
+  subOrderId        String
+  subOrder          SubOrder         @relation(fields: [subOrderId], references: [id])
+  
+  -- Product info (snapshot at order time)
+  productId         String
+  product           Product          @relation("SubOrderProducts", fields: [productId], references: [id])
+  variantId         String?
+  variant           ProductVariant?  @relation(fields: [variantId], references: [id])
+  
+  productName       String
+  variantTitle      String?
+  sku               String
+  
+  -- Pricing
+  quantity          Int
+  unitPrice         Int
+  compareAtPrice    Int?
+  taxRate           Float            @default(0)
+  taxAmount         Int              @default(0)
+  discountAmount    Int              @default(0)
+  totalPrice        Int
+  
+  -- HSN & GST
+  hsnCode           String?
+  gstRate           Float            @default(0)
+  cgst              Float            @default(0)
+  sgst              Float            @default(0)
+  igst              Float            @default(0)
+  
+  -- Fulfillment status per item
+  status            OrderItemStatus  @default(PENDING)
+  fulfilledQty      Int              @default(0)
+  cancelledQty      Int              @default(0)
+  returnedQty       Int              @default(0)
+  
+  -- Returns
+  returns           ReturnItem[]
+  
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([subOrderId])
+  @@index([productId])
+}
+
+enum OrderItemStatus {
+  PENDING
+  FULFILLED
+  PARTIALLY_FULFILLED
+  CANCELLED
+  RETURNED
+  PARTIALLY_RETURNED
+}
+
+-- ===========================================
+-- RETURN & REFUND SYSTEM
+-- ===========================================
+
+model Return {
+  id              String         @id @default(uuid())
+  returnNumber    String         @unique
+  
+  -- Order reference
+  subOrderId      String
+  subOrder        SubOrder       @relation(fields: [subOrderId], references: [id])
+  
+  -- Customer
+  customerId      String
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  
+  -- Return details
+  reason          ReturnReason
+  reasonNote      String?
+  
+  -- Items
+  items           ReturnItem[]
+  
+  -- Status
+  status          ReturnStatus   @default(REQUESTED)
+  
+  -- Refund
+  refundAmount    Int            @default(0)
+  refundMethod    String?
+  refunds         Refund[]
+  
+  -- Tracking
+  requestedAt     DateTime       @default(now())
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  receivedAt      DateTime?
+  refundedAt      DateTime?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([subOrderId])
+  @@index([customerId])
+}
+
+enum ReturnReason {
+  DEFECTIVE
+  WRONG_ITEM
+  NOT_AS_DESCRIBED
+  CHANGED_MIND
+  DAMAGED_IN_SHIPPING
+  OTHER
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PICKED_UP
+  RECEIVED
+  REFUNDED
+  CANCELLED
+}
+
+model ReturnItem {
+  id            String        @id @default(uuid())
+  returnId      String
+  return        Return        @relation(fields: [returnId], references: [id])
+  
+  orderItemId   String
+  orderItem     SubOrderItem  @relation(fields: [orderItemId], references: [id])
+  
+  quantity      Int
+  refundAmount  Int
+  
+  createdAt     DateTime      @default(now())
+
+  @@index([returnId])
+  @@index([orderItemId])
+}
+
+-- Refund tracking
+model Refund {
+  id                String       @id @default(uuid())
+  refundNumber      String       @unique
+  
+  -- Order reference
+  subOrderId        String
+  subOrder          SubOrder     @relation(fields: [subOrderId], references: [id])
+  
+  -- Return reference (if refund is for a return)
+  returnId          String?
+  return            Return?      @relation(fields: [returnId], references: [id])
+  
+  -- Refund details
+  amount            Int
+  reason            String
+  refundMethod      RefundMethod
+  
+  -- Payment gateway reference
+  razorpayRefundId  String?
+  cashfreeRefundId  String?
+  
+  -- Status
+  status            RefundStatus @default(PENDING)
+  
+  -- Timestamps
+  initiatedAt       DateTime     @default(now())
+  processedAt       DateTime?
+  completedAt       DateTime?
+  failedAt          DateTime?
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([subOrderId])
+  @@index([returnId])
+}
+
+enum RefundMethod {
+  ORIGINAL_PAYMENT_METHOD
+  BANK_TRANSFER
+  WALLET
+  STORE_CREDIT
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+-- ===========================================
+-- COMMISSION & PRICING
+-- ===========================================
+
+model CommissionRule {
+  id              String       @id @default(uuid())
+  
+  -- Rule type
+  type            CommissionType @default(GLOBAL)
+  
+  -- Category-specific (if type = CATEGORY)
+  categoryId      String?
+  category        Category?    @relation(fields: [categoryId], references: [id])
+  
+  -- Seller-specific (if type = SELLER)
+  sellerId        String?
+  seller          Seller?      @relation("SellerCommissions", fields: [sellerId], references: [id])
+  
+  -- Commission
+  percentage      Float        -- e.g., 15.5 for 15.5%
+  flatFee         Int?         @default(0)
+  
+  -- Validity
+  isActive        Boolean      @default(true)
+  validFrom       DateTime     @default(now())
+  validTo         DateTime?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([categoryId])
+  @@index([sellerId])
+}
+
+enum CommissionType {
+  GLOBAL
+  CATEGORY
+  SELLER
+}
+
+-- ===========================================
+-- SHIPMOZO INTEGRATION
+-- ===========================================
+
+model ShipmozoShipment {
+  id                String       @id @default(uuid())
+  
+  -- Sub-order reference
+  subOrderId        String       @unique
+  subOrder          SubOrder?    @relation("ShipmozoShipments", fields: [subOrderId], references: [id])
+  
+  -- Shipmozo details
+  shipmentId        String       @unique
+  awbNumber         String?
+  courierName       String?
+  labelUrl          String?
+  trackingUrl       String?
+  
+  -- Shipping details
+  length            Float
+  width             Float
+  height            Float
+  weight            Float
+  declaredValue     Int
+  
+  -- Status
+  status            ShipmentStatus @default(CREATED)
+  
+  -- Tracking events
+  events            ShipmentEvent[]
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([subOrderId])
+  @@index([shipmentId])
+}
+
+enum ShipmentStatus {
+  CREATED
+  MANIFESTED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RTO_INITIATED
+  RTO_DELIVERED
+  CANCELLED
+  FAILED
+}
+
+model ShipmentEvent {
+  id          String            @id @default(uuid())
+  shipmentId  String
+  shipment    ShipmozoShipment  @relation(fields: [shipmentId], references: [id])
+  
+  status      String
+  location    String?
+  remarks     String?
+  timestamp   DateTime
+  
+  createdAt   DateTime          @default(now())
+
+  @@index([shipmentId])
+}
+
+-- ===========================================
+-- INVOICE SYSTEM
+-- ===========================================
+
+model Invoice {
+  id              String       @id @default(uuid())
+  invoiceNumber   String       @unique
+  invoiceType     InvoiceType
+  
+  -- Order reference
+  masterOrderId   String?
+  masterOrder     MasterOrder? @relation("MasterInvoices", fields: [masterOrderId], references: [id])
+  subOrderId      String?
+  subOrder        SubOrder?    @relation("SubOrderInvoices", fields: [subOrderId], references: [id])
+  
+  -- Seller (for sub-order invoice)
+  sellerId        String?
+  seller          Seller?      @relation(fields: [sellerId], references: [id])
+  
+  -- Customer
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  
+  -- Amounts
+  subtotal        Int
+  taxAmount       Int
+  cgst            Int          @default(0)
+  sgst            Int          @default(0)
+  igst            Int          @default(0)
+  shippingCharge  Int
+  discountAmount  Int          @default(0)
+  totalAmount     Int
+  
+  -- PDF
+  pdfUrl          String?
+  
+  -- Timestamps
+  generatedAt     DateTime     @default(now())
+  sentAt          DateTime?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([masterOrderId])
+  @@index([subOrderId])
+  @@index([invoiceNumber])
+}
+
+enum InvoiceType {
+  MASTER          -- Customer-facing invoice
+  SUB_ORDER       -- Seller-facing invoice
+  PACKING_SLIP    -- For shipping
+  CREDIT_NOTE     -- For returns/refunds
+}
+
+-- ===========================================
+-- CSV IMPORT/EXPORT
+-- ===========================================
+
+model ImportJob {
+  id            String       @id @default(uuid())
+  
+  -- Seller
+  sellerId      String
+  seller        Seller       @relation(fields: [sellerId], references: [id])
+  
+  -- File
+  fileUrl       String
+  fileName      String
+  fileSize      Int
+  
+  -- Job details
+  type          ImportType
+  status        ImportStatus @default(PENDING)
+  
+  -- Results
+  totalRows     Int          @default(0)
+  successRows   Int          @default(0)
+  failedRows    Int          @default(0)
+  errorLog      Json?
+  
+  -- Processing
+  startedAt     DateTime?
+  completedAt   DateTime?
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([sellerId])
+}
+
+enum ImportType {
+  PRODUCTS
+  VARIANTS
+  INVENTORY
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+-- ===========================================
+-- UPDATES TO EXISTING MODELS
+-- ===========================================
+
+-- Add to Product model
+model Product {
+  // ... existing fields ...
+  
+  -- Shopify-style enhancements
+  subtitle         String?
+  brand            String?
+  hsnCode          String?
+  gstRate          Float             @default(0)
+  slug             String            @unique
+  handle           String?           @unique  -- URL-friendly identifier
+  
+  -- Variants
+  hasVariants      Boolean           @default(false)
+  options          ProductOption[]
+  variants         ProductVariant[]  @relation("ProductVariants")
+  
+  -- Attributes
+  attributes       ProductAttributeValue[] @relation("ProductAttributes")
+  
+  -- Enhanced relations
+  subOrderItems    SubOrderItem[]    @relation("SubOrderProducts")
+}
+
+-- Add to Seller model
+model Seller {
+  // ... existing fields ...
+  
+  -- Commission
+  commissionRules  CommissionRule[]  @relation("SellerCommissions")
+  
+  -- Orders
+  subOrders        SubOrder[]
+  
+  -- Invoices
+  invoices         Invoice[]
+  
+  -- Imports
+  importJobs       ImportJob[]
+}
+
+-- Add to Customer model
+model Customer {
+  // ... existing fields ...
+  
+  -- Master orders
+  masterOrders     MasterOrder[]
+  
+  -- Returns
+  returns          Return[]
+  
+  -- Invoices
+  invoices         Invoice[]
+}
+
+-- Add to Category model
+model Category {
+  // ... existing fields ...
+  
+  -- Attributes
+  attributes       GlobalAttribute[]
+  
+  -- Commission
+  commissionRules  CommissionRule[]
+}
+
+-- Add to ShippingAddress model
+model ShippingAddress {
+  // ... existing fields ...
+  
+  -- Master orders
+  masterOrders     MasterOrder[]     @relation("MasterOrderShipping")
+}
+
+-- Enhance File model for variant images
+model File {
+  // ... existing fields ...
+  
+  -- Variant images
+  variantImages    VariantImage[]    @relation("VariantImages")
+}
+
+-- Add relations to SubOrder
+model SubOrder {
+  shipment         ShipmozoShipment? @relation("ShipmozoShipments")
+  invoices         Invoice[]         @relation("SubOrderInvoices")
+}
+
+-- Add relations to MasterOrder
+model MasterOrder {
+  invoices         Invoice[]         @relation("MasterInvoices")
+}

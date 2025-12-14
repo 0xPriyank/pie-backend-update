@@ -1,0 +1,48 @@
+# This workflow will build and deploy your Node.js application to an Azure Web App.
+#
+# To use this workflow, you will need to:
+# 1. Create an Azure Web App.
+# 2. In your GitHub repository settings, go to "Secrets and variables" > "Actions".
+# 3. Create a new secret named `AZURE_WEBAPP_PUBLISH_PROFILE` and paste the content of your Azure Web App's publish profile.
+# 4. Create a secret named `DATABASE_URL` with your database connection string.
+# 5. Create another secret named `DIRECT_URL` with your direct database connection string, as required by your Prisma schema.
+
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: "api-woohl" # Change this to the name of your Azure Web App.
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout Github Action"
+        uses: actions/checkout@v4
+
+      - name: "Set up Bun"
+        uses: oven-sh/setup-bun@v2
+
+      - name: "Install dependencies"
+        run: bun install
+
+      - name: "Build the application"
+        run: bun run build
+
+      - name: "Run database migrations"
+        run: bun run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+      - name: "Deploy to Azure Web App"
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: .
