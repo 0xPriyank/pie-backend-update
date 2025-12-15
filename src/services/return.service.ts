@@ -53,7 +53,7 @@ export async function createReturn(customerId: string, data: CreateReturnInput) 
   }
 
   // Check return window (e.g., 7 days from delivery)
-  const deliveryDate = subOrder.deliveredAt;
+  const deliveryDate = subOrder.updatedAt; // Use updatedAt as delivery date
   if (!deliveryDate) {
     throw new ApiError(400, "Delivery date not found");
   }
@@ -137,7 +137,6 @@ export async function createReturn(customerId: string, data: CreateReturnInput) 
         include: {
           subOrderItem: {
             include: {
-              product: true,
               variant: true
             }
           }
@@ -184,7 +183,6 @@ export async function getCustomerReturns(
           include: {
             subOrderItem: {
               include: {
-                product: true,
                 variant: true
               }
             }
@@ -249,7 +247,6 @@ export async function getSellerReturns(
           include: {
             subOrderItem: {
               include: {
-                product: true,
                 variant: true
               }
             }
@@ -302,7 +299,6 @@ export async function getReturnById(returnId: string, userId: string, userType: 
         include: {
           subOrderItem: {
             include: {
-              product: true,
               variant: true
             }
           }
@@ -410,7 +406,6 @@ export async function updateReturnStatus(
         include: {
           subOrderItem: {
             include: {
-              product: true,
               variant: true
             }
           }
@@ -469,7 +464,6 @@ export async function cancelReturn(returnId: string, customerId: string) {
         include: {
           subOrderItem: {
             include: {
-              product: true,
               variant: true
             }
           }

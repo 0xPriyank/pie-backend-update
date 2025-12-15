@@ -152,8 +152,8 @@ export const getCustomerInvoicesList = async (req: Request, res: Response) => {
       invoices: invoices.map(inv => ({
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
-        orderNumber: inv.masterOrder.orderNumber,
-        orderDate: inv.masterOrder.createdAt,
+        orderNumber: inv.masterOrder?.orderNumber || '',
+        orderDate: inv.masterOrder?.createdAt || new Date(),
         sellerName: inv.seller.sellerAddress?.street || inv.seller.businessName,
         totalAmount: inv.totalAmount,
         generatedAt: inv.generatedAt
@@ -175,7 +175,7 @@ export const getCustomerInvoicesList = async (req: Request, res: Response) => {
  */
 export const getSellerInvoicesList = async (req: Request, res: Response) => {
   try {
-    const sellerId = req.seller?.id;
+    const sellerId = (req as any).seller?.id;
 
     if (!sellerId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -189,8 +189,8 @@ export const getSellerInvoicesList = async (req: Request, res: Response) => {
       invoices: invoices.map(inv => ({
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
-        orderNumber: inv.masterOrder.orderNumber,
-        orderDate: inv.masterOrder.createdAt,
+        orderNumber: inv.masterOrder?.orderNumber || '',
+        orderDate: inv.masterOrder?.createdAt || new Date(),
         customerName: inv.customer.fullName,
         customerEmail: inv.customer.email,
         totalAmount: inv.totalAmount,

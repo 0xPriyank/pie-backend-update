@@ -213,7 +213,6 @@ export async function updateRefundStatus(
             include: {
               subOrderItem: {
                 include: {
-                  product: true,
                   variant: true
                 }
               }
@@ -266,7 +265,6 @@ export async function getRefundById(refundId: string, userId: string, userType: 
             include: {
               subOrderItem: {
                 include: {
-                  product: true,
                   variant: true
                 }
               }
@@ -325,7 +323,6 @@ export async function getSellerRefunds(
               include: {
                 subOrderItem: {
                   include: {
-                    product: true,
                     variant: true
                   }
                 }
