@@ -91,21 +91,8 @@ app.get("/healthz", async (_req: Request, res: Response) => {
 // === API Routes ===
 app.use("/api/v1", v1);
 
-// ----CTP: Shopify-level API routes
-app.use("/api/seller", productVariantRoutes);
-app.use("/api", orderRoutes);
-
 // ----CTP: Phase 5 - Payment Webhook Routes (must be before express.json middleware)
 app.use("/api/webhooks", webhookRoutes);
-
-// ----CTP: Phase 6 - Invoice Routes
-app.use("/api/invoices", invoiceRoutes);
-
-// ----CTP: Phase 7 - Shipment Routes (Shipmozo Integration)
-app.use("/api/shipments", shipmentRoutes);
-
-// ----CTP: Phase 8 - CSV Import/Export Routes
-app.use("/api/csv", csvRoutes);
 
 // === Fallback Route ===
 app.all("*", (_req, res) => {

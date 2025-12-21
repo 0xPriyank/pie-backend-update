@@ -12,6 +12,11 @@ import uploadRoutes from "./upload.routes";
 import categoryRoutes from "./category.routes";
 import groupBuyRoutes from "./group-buy.routes";
 import daakitRoutes from "./logistics/shipping.routes";
+import productVariantRoutes from "./productVariant.routes";
+import orderRoutes from "./order.routes";
+import invoiceRoutes from "./invoice.routes";
+import shipmentRoutes from "./shipment.routes";
+import csvRoutes from "./csv.routes";
 
 const router = Router();
 
@@ -78,5 +83,10 @@ router.use("/upload-file", uploadRoutes);
 router.use("/category", categoryRoutes);
 router.use("/group-buys", groupBuyRoutes);
 router.use("/logistics", daakitRoutes);
+router.use("/seller", productVariantRoutes);
+router.use("/", orderRoutes);
+router.use("/invoices", invoiceRoutes);
+router.use("/shipments", shipmentRoutes);
+router.use("/csv", csvRoutes);
 
 export default router;
