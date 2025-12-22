@@ -97,17 +97,25 @@ export const createProductVariant = async (req: Request, res: Response) => {
     // ----CTP: Generate title if not provided (e.g., "Red / Small")
     const title = variantData.title || values.map((v: any) => v.value).join(" / ");
 
+    // ----CTP: Prepare variant data, ensuring imageId is unique or null
+    const variantCreateData: any = {
+      ...variantData,
+      productId,
+      sku,
+      title,
+      optionValues: {
+        connect: optionValueIds.map(id => ({ id })),
+      },
+    };
+
+    // Only include imageId if it's provided and not empty
+    if (!variantCreateData.imageId) {
+      delete variantCreateData.imageId;
+    }
+
     // ----CTP: Create variant
     const variant = await prisma.productVariant.create({
-      data: {
-        ...variantData,
-        productId,
-        sku,
-        title,
-        optionValues: {
-          connect: optionValueIds.map(id => ({ id })),
-        },
-      },
+      data: variantCreateData,
       include: {
         optionValues: {
           include: {

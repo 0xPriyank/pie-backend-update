@@ -59,14 +59,63 @@ export const commonProductSelect = Prisma.validator<Prisma.ProductSelect>()({
       value: true
     }
   },
-  variants: {
+  // ----CTP: Shopify-style product options and variants
+  options: {
     select: {
       id: true,
       name: true,
-      value: true,
-      type: true,
-      stock: true,
-      inStock: true
+      position: true,
+      values: {
+        select: {
+          id: true,
+          value: true,
+          position: true
+        },
+        orderBy: {
+          position: 'asc'
+        }
+      }
+    },
+    orderBy: {
+      position: 'asc'
+    }
+  },
+  productVariants: {
+    select: {
+      id: true,
+      sku: true,
+      title: true,
+      price: true,
+      compareAtPrice: true,
+      costPrice: true,
+      inventory: true,
+      weight: true,
+      position: true,
+      isActive: true,
+      imageId: true,
+      image: {
+        select: {
+          id: true,
+          objectKey: true,
+          src: true
+        }
+      },
+      optionValues: {
+        select: {
+          id: true,
+          value: true,
+          position: true,
+          option: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: {
+      position: 'asc'
     }
   },
   tags: {
@@ -98,9 +147,26 @@ export async function transformProduct(product: ProductWithRelations) {
     );
     images.push(...batchResults);
   }
+
+  // Transform variant images
+  const productVariants = product.productVariants ? await Promise.all(
+    product.productVariants.map(async (variant: any) => {
+      const variantImage = variant.image ? {
+        ...variant.image,
+        url: variant.image.src ? variant.image.src : variant.image.objectKey ? await getDocumentUrl(variant.image.objectKey) : null
+      } : null;
+
+      return {
+        ...variant,
+        image: variantImage
+      };
+    })
+  ) : [];
+
   return {
     ...product,
-    images
+    images,
+    productVariants
   };
 }
 
@@ -502,8 +568,8 @@ export async function getSellerProductsByCategorySlug(
   const skip = (page - 1) * limit;
 
   // Find category by slug
-  const category = await prisma.category.findUnique({
-    where: { slug: categorySlug },
+  const category = await prisma.category.findFirst({
+    where: { slug: categorySlug, sellerId: null },
     include: { subCategories: true }
   });
 

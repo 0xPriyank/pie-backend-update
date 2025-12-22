@@ -131,15 +131,22 @@ Production: `https://your-render-app.onrender.com`
 
 ## Categories
 
+### Public Category Endpoints
+
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/v1/category` | Get all categories | No |
-| GET | `/api/v1/category/:slug` | Get category by slug | No |
-| POST | `/api/v1/category` | Create category (admin) | Admin |
-| PATCH | `/api/v1/category/:categoryId` | Update category | Admin |
-| DELETE | `/api/v1/category/:categoryId` | Delete category | Admin |
+| GET | `/api/v1/category/public` | Get all categories (all sellers) | No |
 
-> **Note**: Tags API does NOT exist in this codebase.
+### Seller Category Endpoints (Seller-Specific)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/v1/category` | Get seller's categories | Seller |
+| POST | `/api/v1/category` | Create category | Seller |
+| PATCH | `/api/v1/category/:categoryId` | Update category | Seller |
+| DELETE | `/api/v1/category/:categoryId` | Delete category and subcategories | Seller |
+
+> **Note**: Each seller can only see and manage their own categories. Categories are unique per seller (name and slug).
 
 ---
 

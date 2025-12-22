@@ -1,7 +1,6 @@
-import { deleteDocumentFromS3, getDocumentUrlS3, uploadToS3 } from "@/lib/aws-s3";
+import { uploadToCloudinary, getDocumentUrlCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
 import fs from "node:fs";
 import path from "node:path";
-import { object } from "zod";
 
 type uploadServiceResponse = {
   objectKey: string;
@@ -10,7 +9,7 @@ type uploadServiceResponse = {
 };
 
 /**
- * Upload a file to cloud
+ * Upload a file to cloud (Cloudinary)
  * @param localFilePath Path to the local file to upload
  * @returns Object key if successful, null otherwise
  */
@@ -18,7 +17,7 @@ type uploadServiceResponse = {
 const uploadService = async (localFilePath: string): Promise<uploadServiceResponse | null> => {
   try {
     if (!localFilePath) return null;
-    const objectKey = await uploadToS3(localFilePath);
+    const objectKey = await uploadToCloudinary(localFilePath);
     if (!objectKey) {
       throw new Error("Failed to upload file to Cloudinary");
     }
@@ -39,11 +38,9 @@ const uploadService = async (localFilePath: string): Promise<uploadServiceRespon
   }
 };
 
-// TODO: Change this implementation once the cloud provider is decided.
-
-const getDocumentUrl = async (objectKey: string) => {
-  if (!object) return "";
-  const url = await getDocumentUrlS3(objectKey);
+const getDocumentUrl = (objectKey: string, format?: string): string => {
+  if (!objectKey) return "";
+  const url = getDocumentUrlCloudinary(objectKey, format);
   if (url) return url;
   return "";
 };
@@ -52,8 +49,8 @@ const deleteFromCloud = async (objectKey: string) => {
   try {
     if (!objectKey) return;
 
-    const isDeleted = await deleteDocumentFromS3(objectKey);
-    return isDeleted;
+    await deleteFromCloudinary(objectKey);
+    return true;
   } catch (error) {
     console.error("Error deleting file from Cloudinary:", error);
     return false;

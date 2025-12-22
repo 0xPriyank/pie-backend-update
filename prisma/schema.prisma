@@ -315,6 +315,7 @@ model Seller {
   invoices        Invoice[]
   commissionRules CommissionRule[]
   importJobs      ImportJob[]
+  categories      Category[]
 }
 
 model SellerContact {
@@ -941,19 +942,24 @@ model Cart {
 
 model Category {
   id               String     @id @default(uuid())
-  name             String     @unique
-  slug             String     @unique
+  name             String
+  slug             String
   parentCategoryId String?
   taxId            String
+  sellerId         String?    // Seller-specific categories
   // Relations
   parentCategory   Category?  @relation("CategoryToParent", fields: [parentCategoryId], references: [id])
   subCategories    Category[] @relation("CategoryToParent")
   taxSlab          TaxSlab    @relation(fields: [taxId], references: [id])
+  seller           Seller?    @relation(fields: [sellerId], references: [id])
   products         Product[]
   
   // ----CTP: Added Shopify-level category features
   commissionRules  CommissionRule[]
   globalAttributes GlobalAttribute[]
+
+  @@unique([slug, sellerId])
+  @@unique([name, sellerId])
 }
 
 model Tag {

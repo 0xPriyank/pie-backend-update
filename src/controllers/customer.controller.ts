@@ -351,8 +351,8 @@ export const customerGetProductsByCategorySlug = asyncHandler(
     const { page, limit } = paginationSchema.parse(req.query);
     const { categorySlug } = req.params as { categorySlug: string };
 
-    const category = await prisma.category.findUnique({
-      where: { slug: categorySlug },
+    const category = await prisma.category.findFirst({
+      where: { slug: categorySlug, sellerId: null },
       include: { subCategories: true }
     });
 

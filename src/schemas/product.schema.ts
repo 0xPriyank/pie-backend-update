@@ -177,8 +177,46 @@ export const productResponseSchema = z.object({
   color: colorSchema,
   size: sizeSchema,
 
-  variants: z.array(variantSchema),
   images: z.array(imageSchema),
+
+  // ----CTP: Shopify-style product options and variants
+  options: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    position: z.number(),
+    values: z.array(z.object({
+      id: z.string(),
+      value: z.string(),
+      position: z.number()
+    }))
+  })).optional(),
+  productVariants: z.array(z.object({
+    id: z.string(),
+    sku: z.string(),
+    title: z.string().nullable(),
+    price: z.number(),
+    compareAtPrice: z.number().nullable(),
+    costPrice: z.number().nullable(),
+    inventory: z.number(),
+    weight: z.number().nullable(),
+    position: z.number(),
+    isActive: z.boolean(),
+    imageId: z.string().nullable(),
+    image: z.object({
+      id: z.string(),
+      objectKey: z.string().nullable(),
+      src: z.string().nullable()
+    }).nullable(),
+    optionValues: z.array(z.object({
+      id: z.string(),
+      value: z.string(),
+      position: z.number(),
+      option: z.object({
+        id: z.string(),
+        name: z.string()
+      })
+    }))
+  })).optional(),
 
   Review: z.array(reviewSchema),
   tags: z.array(tagsSchema)

@@ -31,7 +31,7 @@ export const getProducts = async (req: Request, res: Response) => {
     let allCategoryIds: string[] | undefined;
 
     if (categorySlug) {
-      const category = await prisma.category.findUnique({ where: { slug: categorySlug } });
+      const category = await prisma.category.findFirst({ where: { slug: categorySlug } });
       if (!category) throw new ApiError(404, "Category not found");
       resolvedCategoryId = category.id;
     } else if (categoryId) {

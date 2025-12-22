@@ -734,26 +734,100 @@ Authorization: Bearer <sellerToken>
 
 ## Categories
 
-### Create Category
+### Get Public Categories
+
+**GET** `/api/v1/category/public`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Categories fetched successfully",
+  "data": [
+    {
+      "id": "uuid-category-123",
+      "name": "Electronics",
+      "slug": "electronics",
+      "parentCategoryId": null,
+      "taxId": "uuid-tax-1",
+      "sellerId": "uuid-seller-1",
+      "subCategories": [
+        {
+          "id": "uuid-category-456",
+          "name": "Smartphones",
+          "slug": "smartphones",
+          "parentCategoryId": "uuid-category-123",
+          "sellerId": "uuid-seller-1",
+          "subCategories": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Get Seller's Categories
+
+**GET** `/api/v1/category`
+
+Headers:
+```
+Authorization: Bearer <sellerToken>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Categories fetched successfully",
+  "data": [
+    {
+      "id": "uuid-category-123",
+      "name": "Electronics",
+      "slug": "electronics",
+      "parentCategoryId": null,
+      "taxId": "uuid-tax-1",
+      "sellerId": "uuid-seller-1",
+      "subCategories": [],
+      "_count": {
+        "products": 15
+      }
+    }
+  ]
+}
+```
+
+### Create Category (Seller-Specific)
 
 **POST** `/api/v1/category`
 
 Headers:
 ```
-Authorization: Bearer <adminToken>
+Authorization: Bearer <sellerToken>
 ```
 
 ```json
 {
   "name": "Smartphones",
   "slug": "smartphones",
-  "description": "Mobile phones and accessories",
-  "image": "https://storage.example.com/category-smartphones.jpg",
-  "parentId": null,
-  "isActive": true,
-  "position": 1,
-  "seoTitle": "Buy Smartphones Online",
-  "seoDescription": "Shop latest smartphones at best prices"
+  "parentCategoryId": null,
+  "taxId": "uuid-tax-1"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Category created successfully",
+  "data": {
+    "id": "uuid-category-new",
+    "name": "Smartphones",
+    "slug": "smartphones",
+    "parentCategoryId": null,
+    "taxId": "uuid-tax-1",
+    "sellerId": "uuid-seller-1"
+  }
 }
 ```
 
@@ -761,11 +835,57 @@ Authorization: Bearer <adminToken>
 
 **PATCH** `/api/v1/category/:categoryId`
 
+Headers:
+```
+Authorization: Bearer <sellerToken>
+```
+
 ```json
 {
   "name": "Smartphones & Tablets",
-  "description": "Mobile devices including phones and tablets",
-  "isActive": true
+  "slug": "smartphones-tablets"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Category updated successfully",
+  "data": {
+    "id": "uuid-category-123",
+    "name": "Smartphones & Tablets",
+    "slug": "smartphones-tablets",
+    "parentCategoryId": null,
+    "taxId": "uuid-tax-1",
+    "sellerId": "uuid-seller-1"
+  }
+}
+```
+
+### Delete Category
+
+**DELETE** `/api/v1/category/:categoryId`
+
+Headers:
+```
+Authorization: Bearer <sellerToken>
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Category and its subcategories deleted successfully",
+  "data": {}
+}
+```
+
+**Response (Error - Not Found):**
+```json
+{
+  "success": false,
+  "message": "Category not found or doesn't belong to you"
 }
 ```
 
