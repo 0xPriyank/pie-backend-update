@@ -550,6 +550,188 @@ Authorization: Bearer <sellerToken>
 
 ---
 
+## Product Attributes
+
+### Create Color
+
+**POST** `/api/v1/colors`
+
+```json
+{
+  "name": "Bright Red",
+  "value": "#FF0000"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Color created successfully",
+  "data": {
+    "id": "uuid-color-123",
+    "name": "Bright Red",
+    "value": "#FF0000"
+  }
+}
+```
+
+### Get All Colors
+
+**GET** `/api/v1/colors`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Colors retrieved successfully",
+  "data": [
+    {
+      "id": "uuid-color-123",
+      "name": "Bright Red",
+      "value": "#FF0000",
+      "_count": {
+        "products": 15
+      }
+    },
+    {
+      "id": "uuid-color-456",
+      "name": "Ocean Blue",
+      "value": "#0066CC",
+      "_count": {
+        "products": 8
+      }
+    }
+  ]
+}
+```
+
+### Update Color
+
+**PATCH** `/api/v1/colors/:colorId`
+
+```json
+{
+  "name": "Deep Red",
+  "value": "#CC0000"
+}
+```
+
+### Delete Color
+
+**DELETE** `/api/v1/colors/:colorId`
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Color deleted successfully"
+}
+```
+
+**Response (Error - Used by products):**
+```json
+{
+  "success": false,
+  "message": "Cannot delete color. It is being used by 15 product(s)"
+}
+```
+
+### Create Size
+
+**POST** `/api/v1/sizes`
+
+```json
+{
+  "name": "Extra Large",
+  "value": "XL"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Size created successfully",
+  "data": {
+    "id": "uuid-size-123",
+    "name": "Extra Large",
+    "value": "XL"
+  }
+}
+```
+
+### Get All Sizes
+
+**GET** `/api/v1/sizes`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Sizes retrieved successfully",
+  "data": [
+    {
+      "id": "uuid-size-123",
+      "name": "Small",
+      "value": "S",
+      "_count": {
+        "products": 42
+      }
+    },
+    {
+      "id": "uuid-size-456",
+      "name": "Medium",
+      "value": "M",
+      "_count": {
+        "products": 58
+      }
+    },
+    {
+      "id": "uuid-size-789",
+      "name": "Extra Large",
+      "value": "XL",
+      "_count": {
+        "products": 31
+      }
+    }
+  ]
+}
+```
+
+### Update Size
+
+**PATCH** `/api/v1/sizes/:sizeId`
+
+```json
+{
+  "name": "Extra Extra Large",
+  "value": "XXL"
+}
+```
+
+### Delete Size
+
+**DELETE** `/api/v1/sizes/:sizeId`
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Size deleted successfully"
+}
+```
+
+**Response (Error - Used by products):**
+```json
+{
+  "success": false,
+  "message": "Cannot delete size. It is being used by 31 product(s)"
+}
+```
+
+---
+
 ## Categories
 
 ### Create Category

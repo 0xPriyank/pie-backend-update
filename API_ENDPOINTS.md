@@ -101,6 +101,34 @@ Production: `https://your-render-app.onrender.com`
 
 ---
 
+## Product Attributes
+
+### Colors
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/v1/colors` | Get all colors | No |
+| GET | `/api/v1/colors/:colorId` | Get color by ID | No |
+| POST | `/api/v1/colors` | Create new color | No* |
+| PATCH | `/api/v1/colors/:colorId` | Update color | No* |
+| DELETE | `/api/v1/colors/:colorId` | Delete color (blocked if used by products) | No* |
+
+> *Note: Add verifyJWT middleware for authentication when required
+
+### Sizes
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/api/v1/sizes` | Get all sizes | No |
+| GET | `/api/v1/sizes/:sizeId` | Get size by ID | No |
+| POST | `/api/v1/sizes` | Create new size | No* |
+| PATCH | `/api/v1/sizes/:sizeId` | Update size | No* |
+| DELETE | `/api/v1/sizes/:sizeId` | Delete size (blocked if used by products) | No* |
+
+> *Note: Add verifyJWT middleware for authentication when required
+
+---
+
 ## Categories
 
 | Method | Endpoint | Description | Auth Required |

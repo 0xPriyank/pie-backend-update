@@ -17,6 +17,8 @@ import orderRoutes from "./order.routes";
 import invoiceRoutes from "./invoice.routes";
 import shipmentRoutes from "./shipment.routes";
 import csvRoutes from "./csv.routes";
+import colorRoutes from "./color.routes";
+import sizeRoutes from "./size.routes";
 
 const router = Router();
 
@@ -88,5 +90,7 @@ router.use("/", orderRoutes);
 router.use("/invoices", invoiceRoutes);
 router.use("/shipments", shipmentRoutes);
 router.use("/csv", csvRoutes);
+router.use("/colors", colorRoutes);
+router.use("/sizes", sizeRoutes);
 
 export default router;
