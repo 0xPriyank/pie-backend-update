@@ -108,8 +108,6 @@ export const updateProductSchema = z.object({
   tags: z.array(z.string()).optional()
 });
 
-export type CreateProductInput = z.infer<typeof createProductSchema>;
-
 export const getProductsByCategoryIdAndSellerIdSchema = z.object({
   categoryId: categoryIdSchema.shape.categoryId,
   sellerId: sellerIdSchema.shape.sellerId

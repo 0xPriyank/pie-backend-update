@@ -245,8 +245,7 @@ export async function createProduct(
       category = await prisma.category.create({
         data: {
           name: productData.category,
-          slug,
-          description: `Category for ${productData.category}`
+          slug
         }
       });
     }

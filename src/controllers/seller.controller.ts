@@ -206,61 +206,20 @@ async function transformProduct(product: ProductResponse) {
 }
 
 export const sellerCreateProduct = asyncHandler(async (req: Request, res: Response) => {
-  const {
-    name,
-    sku,
-    categories,
-    shortDescription,
-    description,
-    price,
-    discount,
-    colorId,
-    sizeId,
-    stockAvailable,
-    tags
-  }: CreateProductInput = createProductSchema.parse(req.body);
+  const productData: CreateProductInput = createProductSchema.parse(req.body);
 
   const sellerId = req.user?.id;
   if (!sellerId) {
     throw new ApiError(401, "Unauthorized. Authentication required to create a product.");
   }
 
-  const user = await prisma.seller.findUnique({ where: { id: sellerId } });
-  if (!user) {
-    throw new ApiError(404, "Seller not Found");
-  }
-  if (!user.isVerified) {
-    throw new ApiError(400, "Seller is not verified. Please verify to create a product");
-  }
+  // Use the service function from seller/product.service.ts
+  const { createProduct: createProductService } = await import("@/services/seller/product.service");
+  const newProduct = await createProductService(sellerId, productData);
 
-  // Create the product
-  const newProduct = await prisma.product.create({
-    data: {
-      name,
-      sku,
-      categories: {
-        connect: categories.map((id) => ({ id }))
-      },
-      shortDescription,
-      description,
-      price,
-      discount,
-      inStock: stockAvailable > 0,
-      stockAvailable,
-      sellerId,
-      colorId,
-      sizeId,
-      tags: {
-        connect: tags.map((name) => ({ name }))
-      }
-    },
-    select: commonProductSelect
-  });
-
-  const transformedProduct = await transformProduct(newProduct);
   res
     .status(201)
-    .json(new ApiResponse(201, { product: transformedProduct }, "Product created successfully"));
+    .json(new ApiResponse(201, { product: newProduct }, "Product created successfully"));
 });
 
 export const sellerAddImageToProduct = asyncHandler(async (req: Request, res: Response) => {
