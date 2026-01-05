@@ -227,3 +227,5 @@ export const getSellerProductStats = asyncHandler(async (req: Request, res: Resp
     .status(200)
     .json(new ApiResponse(200, { data: stats }, "Product statistics fetched successfully"));
 });
+
+

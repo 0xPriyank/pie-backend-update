@@ -176,18 +176,32 @@ export async function transformProduct(product: ProductWithRelations) {
 export async function createProduct(
   sellerId: string,
   productData: {
-    name: string;
+    title: string;
+    description?: string;
+    shortDescription?: string;
     sku: string;
-    categories: string[];
-    shortDescription: string;
-    description: string;
+    status: "draft" | "active" | "archived";
     price: number;
-    discount?: number;
-    colorId: string;
-    sizeId: string;
-    stockAvailable: number;
-    tags?: string[];
-    details?: string[];
+    compareAtPrice?: number;
+    inventory: {
+      trackQuantity: boolean;
+      quantity: number;
+    };
+    variants: Array<{
+      id?: string;
+      options: Array<{ name: string; value: string }>;
+      price: number;
+      quantity: number;
+    }>;
+    images: Array<{ url: string; alt: string }>;
+    category?: string;
+    tags: string[];
+    weight?: number;
+    dimensions?: {
+      length: number;
+      width: number;
+      height: number;
+    };
   }
 ) {
   // Verify seller exists and is verified
@@ -209,97 +223,209 @@ export async function createProduct(
   });
 
   if (existingProduct) {
-    throw new ApiError(
-      400,
-      `Product with SKU "${productData.sku}" already exists. Please use a unique SKU (e.g., change the number)`
-    );
+    throw new ApiError(400, `Product with SKU "${productData.sku}" already exists`);
   }
 
-  // Verify that categories exist
-  const categories = await prisma.category.findMany({
-    where: { id: { in: productData.categories } }
-  });
-
-  if (categories.length !== productData.categories.length) {
-    throw new ApiError(
-      400,
-      `One or more categories not found. Please check category IDs in Prisma Studio`
-    );
-  }
-
-  // Verify color exists
-  const color = await prisma.color.findUnique({
-    where: { id: productData.colorId }
-  });
-
-  if (!color) {
-    throw new ApiError(400, `Color ID "${productData.colorId}" not found. Please create colors in Prisma Studio first`);
-  }
-
-  // Verify size exists
-  const size = await prisma.size.findUnique({
-    where: { id: productData.sizeId }
-  });
-
-  if (!size) {
-    throw new ApiError(400, `Size ID "${productData.sizeId}" not found. Please create sizes in Prisma Studio first`);
-  }
-
-  // Auto-create tags if they don't exist
-  if (productData.tags && productData.tags.length > 0) {
-    await Promise.all(
-      productData.tags.map((tagName) =>
-        prisma.tag.upsert({
-          where: { name: tagName },
-          create: { name: tagName },
-          update: {}
-        })
-      )
-    );
-  }
-
-  // Create the product
-  try {
-    const newProduct = await prisma.product.create({
-      data: {
-        name: productData.name,
-        sku: productData.sku,
-        categories: {
-          connect: productData.categories.map((id) => ({ id }))
-        },
-        shortDescription: productData.shortDescription,
-        description: productData.description,
-        price: productData.price,
-        discount: productData.discount || 0,
-        originalPrice: productData.price,
-        inStock: productData.stockAvailable > 0,
-        stockAvailable: productData.stockAvailable,
-        sellerId,
-        colorId: productData.colorId,
-        sizeId: productData.sizeId,
-        details: productData.details || [],
-        tags: productData.tags
-          ? {
-              connect: productData.tags.map((name) => ({ name }))
-            }
-          : undefined
-      },
-      select: commonProductSelect
+  // Find or create category
+  let categoryId: string | undefined;
+  if (productData.category) {
+    let category = await prisma.category.findFirst({
+      where: {
+        OR: [
+          { slug: productData.category },
+          { name: productData.category }
+        ],
+        sellerId: null // Global category
+      }
     });
 
-    return await transformProduct(newProduct);
-  } catch (error: any) {
-    // Handle Prisma-specific errors
-    if (error.code === "P2002") {
-      throw new ApiError(400, `Product with SKU "${productData.sku}" already exists. Use a unique SKU`);
+    if (!category) {
+      // Create category if it doesn't exist
+      const slug = productData.category.toLowerCase().replace(/\s+/g, '-');
+      category = await prisma.category.create({
+        data: {
+          name: productData.category,
+          slug,
+          description: `Category for ${productData.category}`
+        }
+      });
     }
-    if (error.code === "P2025") {
-      throw new ApiError(400, "One or more related records (category, color, size, tag) not found");
-    }
-    throw new ApiError(500, `Failed to create product: ${error.message}`);
+    categoryId = category.id;
   }
-}
 
+  // Create or find tags
+  const tagIds: string[] = [];
+  for (const tagName of productData.tags) {
+    let tag = await prisma.tag.findFirst({
+      where: { name: tagName }
+    });
+
+    if (!tag) {
+      tag = await prisma.tag.create({
+        data: { name: tagName }
+      });
+    }
+    tagIds.push(tag.id);
+  }
+
+  // Get default color and size (or create placeholder ones)
+  let defaultColor = await prisma.color.findFirst();
+  if (!defaultColor) {
+    defaultColor = await prisma.color.create({
+      data: { name: "Default", value: "#000000" }
+    });
+  }
+
+  let defaultSize = await prisma.size.findFirst();
+  if (!defaultSize) {
+    defaultSize = await prisma.size.create({
+      data: { name: "Default", value: "OS" }
+    });
+  }
+
+  // Create product
+  const product = await prisma.product.create({
+    data: {
+      name: productData.title,
+      sku: productData.sku,
+      description: productData.description || "",
+      shortDescription: productData.shortDescription || "",
+      price: Math.round(productData.price), // Convert to integer (cents)
+      compareAtPrice: productData.compareAtPrice ? Math.round(productData.compareAtPrice) : null,
+      originalPrice: Math.round(productData.price),
+      discount: 0,
+      stockAvailable: productData.inventory.quantity,
+      trackQuantity: productData.inventory.trackQuantity,
+      inStock: productData.inventory.quantity > 0,
+      weight: productData.weight,
+      dimensions: productData.dimensions,
+      status: productData.status,
+      isActive: productData.status === "active",
+      sellerId,
+      colorId: defaultColor.id,
+      sizeId: defaultSize.id,
+      categories: categoryId
+        ? {
+            connect: [{ id: categoryId }]
+          }
+        : undefined,
+      tags: tagIds.length > 0
+        ? {
+            connect: tagIds.map((id) => ({ id }))
+          }
+        : undefined
+    }
+  });
+
+  // Extract unique option names from variants
+  const optionNamesSet = new Set<string>();
+  for (const variant of productData.variants) {
+    for (const option of variant.options) {
+      optionNamesSet.add(option.name);
+    }
+  }
+
+  // Create product options
+  const optionMap = new Map<string, { optionId: string; values: Map<string, string> }>();
+  let position = 0;
+
+  for (const optionName of optionNamesSet) {
+    const productOption = await prisma.productOption.create({
+      data: {
+        productId: product.id,
+        name: optionName,
+        position: position++
+      }
+    });
+
+    optionMap.set(optionName, {
+      optionId: productOption.id,
+      values: new Map()
+    });
+  }
+
+  // Create option values and variants
+  let variantPosition = 0;
+
+  for (const variantData of productData.variants) {
+    // Create/get option values for this variant
+    const optionValueIds: string[] = [];
+
+    for (const option of variantData.options) {
+      const optionInfo = optionMap.get(option.name);
+      if (!optionInfo) continue;
+
+      let optionValueId = optionInfo.values.get(option.value);
+
+      if (!optionValueId) {
+        const optionValue = await prisma.productOptionValue.create({
+          data: {
+            optionId: optionInfo.optionId,
+            value: option.value,
+            position: optionInfo.values.size
+          }
+        });
+        optionValueId = optionValue.id;
+        optionInfo.values.set(option.value, optionValueId);
+      }
+
+      optionValueIds.push(optionValueId);
+    }
+
+    // Generate variant title from options
+    const variantTitle = variantData.options.map((opt) => opt.value).join(" / ");
+
+    // Generate variant SKU
+    const variantSku = `${productData.sku}-${variantData.options
+      .map((opt) => opt.value.substring(0, 3).toUpperCase())
+      .join("-")}`;
+
+    // Create product variant
+    await prisma.productVariant.create({
+      data: {
+        productId: product.id,
+        sku: variantSku,
+        title: variantTitle,
+        price: Math.round(variantData.price),
+        inventory: variantData.quantity,
+        position: variantPosition++,
+        optionValues: {
+          connect: optionValueIds.map((id) => ({ id }))
+        }
+      }
+    });
+  }
+
+  // Handle images (download and store them)
+  for (const imageData of productData.images) {
+    // For now, we'll store the URL directly
+    // In production, you'd want to download and upload to your storage
+    await prisma.file.create({
+      data: {
+        objectKey: imageData.url,
+        src: imageData.url,
+        alt: imageData.alt,
+        mimeType: "image/jpeg",
+        format: "jpg",
+        productId: product.id,
+        sellerId,
+        isMain: false
+      }
+    });
+  }
+
+  // Fetch and return the created product with relations
+  const createdProduct = await prisma.product.findUnique({
+    where: { id: product.id },
+    select: commonProductSelect
+  });
+
+  if (!createdProduct) {
+    throw new ApiError(500, "Failed to create product");
+  }
+
+  return await transformProduct(createdProduct);
+}
 
 /**
  * Get all products for a specific seller with pagination

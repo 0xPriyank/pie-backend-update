@@ -28,38 +28,54 @@ export const paginationSchema = z.object({
 });
 
 export const createProductSchema = z.object({
-  name: z
-    .string({ required_error: "Product name is required" })
-    .min(1, "Product name cannot be empty"),
-
-  sku: z.string({ required_error: "sku is required" }).trim().min(1, "sku canot be empty"),
-
-  categories: z.array(z.string().trim().uuid()),
-
-  shortDescription: z.string().trim().min(1, "Short description cannot be empty"),
-
-  description: z.string().trim().min(1, "description cannot be empty"),
-
-  price: z
-    .number({ required_error: "Price is required" })
-    .nonnegative("Price cannot be negative")
-    .refine((val) => val > 0, { message: "Price must be greater than 0" }),
-
-  discount: z
-    .number({ required_error: "Discount is required" })
-    .min(0, "Discount cannot be negative")
-    .max(100, "Discount cannot be more than 100"),
-
-  stockAvailable: z
-    .number({ required_error: "Stock available is required" })
-    .int("Stock must be an integer")
-    .min(0, "Stock cannot be negative"),
-
-  colorId: z.string({ required_error: "Color Id is required" }).uuid(),
-
-  sizeId: z.string({ required_error: "Size Id is required" }).uuid(),
-  tags: z.array(z.string())
+  title: z.string({ required_error: "Product title is required" }).min(1, "Product title cannot be empty"),
+  
+  description: z.string().optional(),
+  
+  shortDescription: z.string().optional(),
+  
+  sku: z.string({ required_error: "SKU is required" }).trim().min(1, "SKU cannot be empty"),
+  
+  status: z.enum(["draft", "active", "archived"]).default("draft"),
+  
+  price: z.number({ required_error: "Price is required" }).nonnegative("Price cannot be negative"),
+  
+  compareAtPrice: z.number().nonnegative("Compare at price cannot be negative").optional(),
+  
+  inventory: z.object({
+    trackQuantity: z.boolean().default(true),
+    quantity: z.number().int().min(0, "Quantity cannot be negative").default(0)
+  }),
+  
+  variants: z.array(z.object({
+    id: z.string().optional(), // Client-generated ID (can be ignored server-side)
+    options: z.array(z.object({
+      name: z.string(),
+      value: z.string()
+    })),
+    price: z.number().nonnegative("Variant price cannot be negative"),
+    quantity: z.number().int().min(0, "Variant quantity cannot be negative")
+  })).optional().default([]),
+  
+  images: z.array(z.object({
+    url: z.string().url("Invalid image URL"),
+    alt: z.string().optional().default("")
+  })).optional().default([]),
+  
+  category: z.string().optional(), // Category name or slug
+  
+  tags: z.array(z.string()).optional().default([]),
+  
+  weight: z.number().positive("Weight must be positive").optional(),
+  
+  dimensions: z.object({
+    length: z.number().positive("Length must be positive"),
+    width: z.number().positive("Width must be positive"),
+    height: z.number().positive("Height must be positive")
+  }).optional()
 });
+
+export type CreateProductInput = z.infer<typeof createProductSchema>;
 
 export const addImageToProductSchema = z.object({
   productId: z.string().uuid(),

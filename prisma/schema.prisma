@@ -490,10 +490,15 @@ model Product {
   shortDescription String
   description      String
   price            Int
+  compareAtPrice   Int? // Original price before discount
   discount         Float            @default(0) // Percentage between 0-100
   originalPrice    Int              @default(0)
   inStock          Boolean          @default(false)
   stockAvailable   Int              @default(0)
+  trackQuantity    Boolean          @default(true) // Whether to track inventory quantity
+  weight           Float? // Product weight
+  dimensions       Json? // {length, width, height}
+  status           String           @default("draft") // draft, active, archived
   sellerId         String
   seller           Seller           @relation(fields: [sellerId], references: [id])
   colorId          String
