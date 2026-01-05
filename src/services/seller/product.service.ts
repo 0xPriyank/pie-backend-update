@@ -240,12 +240,24 @@ export async function createProduct(
     });
 
     if (!category) {
+      // Get or create default tax slab for new categories
+      let defaultTaxSlab = await prisma.taxSlab.findFirst();
+      if (!defaultTaxSlab) {
+        defaultTaxSlab = await prisma.taxSlab.create({
+          data: {
+            title: "Default",
+            percentage: 0
+          }
+        });
+      }
+
       // Create category if it doesn't exist
       const slug = productData.category.toLowerCase().replace(/\s+/g, '-');
       category = await prisma.category.create({
         data: {
           name: productData.category,
-          slug
+          slug,
+          taxId: defaultTaxSlab.id
         }
       });
     }
